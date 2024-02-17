@@ -1,6 +1,7 @@
 import asyncio
 import json
 import random
+import re
 from typing import TypedDict
 
 import aiohttp
@@ -150,6 +151,9 @@ async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
             if item not in xset:
                 xset.add(item)
                 xlist.append(item)
+            if re.search(r'[0-9]', item):
+                # Don't do repeated doubling if there's numbers involved
+                return
 
     seen_addition = set()
 
@@ -161,6 +165,10 @@ async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
                 xset.add(result)
                 xlist.append(result)
                 await repeated_doubling(result)
+            if re.search(r'[0-9]', first):
+                if re.search(r'[0-9]', second) or re.search(r'[0-9]', result):
+                    # Don't do repeated addition if there's numbers involved
+                    return
             first = result
 
     async def explore(first: str, second: str) -> None:
