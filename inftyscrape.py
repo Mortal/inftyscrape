@@ -33,6 +33,9 @@ async def get_infinite_craft_pair(
                 flush=True,
             )
         s = await response.read()
+        if response.status == 403 and b"_cf_chl_opt" in s:
+            print("You got hit with a Cloudflare robot check! Go to https://neal.fun/infinite-craft/ and play for a bit", flush=True)
+            raise SystemExit(43)
         if response.status != 200:
             print(s.decode("utf-8", errors="replace"), flush=True)
             response.raise_for_status()
