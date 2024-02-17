@@ -189,7 +189,11 @@ async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
 
     rng = random.Random(seed)
     while True:
-        await explore(rng.choice(xlist), rng.choice(xlist))
+        first = rng.choice(xlist)
+        second = rng.choice(xlist)
+        if re.search(r'[0-9]', first) or re.search(r'[0-9]', second):
+            continue
+        await explore(first, second)
 
 
 if __name__ == "__main__":
