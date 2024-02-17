@@ -1,7 +1,7 @@
 import asyncio
 import json
 import random
-from typing import Awaitable, Callable, Sequence, TypedDict
+from typing import TypedDict
 
 import aiohttp
 
@@ -135,75 +135,10 @@ async def main():
     database = load_database()
     async with aiohttp.ClientSession() as session:
         context = (session, database)
-        await mode4(context)
+        await go_explore(context)
 
 
-async def mode1(context: tuple[aiohttp.ClientSession, Database]) -> None:
-    rng = random.Random(seed)
-    search_space = list(default_elements)
-    found = set(search_space)
-    seen = set()
-    first = rng.choice(search_space)
-    second = rng.choice(search_space)
-    while True:
-        seen.add((first, second))
-        result = await lookup(context, first, second)
-        if result not in found:
-            found.add(result)
-            search_space.append(result)
-        if first == result or (result, second) in seen or (result, result) in seen:
-            first = rng.choice(search_space)
-            second = rng.choice(search_space)
-            continue
-        if first == second and (result, result) not in seen:
-            first = second = result
-            continue
-        first = result
-        # mode = rng.choice(("new", "addition", "doubling"))
-        # if mode == "new":
-        #     first = rng.choice(search_space)
-        #     second = rng.choice(search_space)
-        # elif mode == "addition":
-        #     first = result
-        # elif mode == "doubling":
-        #     first = second = result
-
-
-async def mode2(context: tuple[aiohttp.ClientSession, Database]) -> None:
-    rng = random.Random(seed)
-    search_space = list(default_elements)
-    found = set(search_space)
-    while True:
-        first = rng.choice(search_space)
-        mode = rng.choice(("addition", "doubling"))
-        if mode == "doubling":
-            second = first
-        else:
-            second = rng.choice(search_space)
-        seen = {first}
-        if first == second:
-            # Repeated addition of second to first
-            while True:
-                first = await lookup(context, first, second)
-                if first in seen:
-                    break
-                if first not in found:
-                    found.add(first)
-                    search_space.append(first)
-                seen.add(first)
-        else:
-            # Repeated doubling
-            while True:
-                first = await lookup(context, first, first)
-                if first in seen:
-                    break
-                if first not in found:
-                    found.add(first)
-                    search_space.append(first)
-                seen.add(first)
-
-
-def init_explore(context: tuple[aiohttp.ClientSession, Database]) -> tuple[Sequence[str], Callable[[str, str], Awaitable[None]]]:
+async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
     xlist = list(default_elements)
     xset = set(xlist)
     seen_doubling = set()
@@ -241,18 +176,6 @@ def init_explore(context: tuple[aiohttp.ClientSession, Database]) -> tuple[Seque
             await repeated_addition(result, second)
             await repeated_addition(result, first)
 
-    return xlist, explore
-
-
-async def mode3(context: tuple[aiohttp.ClientSession, Database]) -> None:
-    xlist, explore = init_explore(context)
-    for i in range(1_000_000_000):
-        for j in range(i + 1):
-            await explore(xlist[i], xlist[j])
-
-
-async def mode4(context: tuple[aiohttp.ClientSession, Database]) -> None:
-    xlist, explore = init_explore(context)
     rng = random.Random(seed)
     while True:
         await explore(rng.choice(xlist), rng.choice(xlist))
