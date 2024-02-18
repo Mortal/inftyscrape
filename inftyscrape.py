@@ -1,8 +1,9 @@
 import asyncio
+import cmd
 import json
 import random
 import re
-import traceback
+import readline
 from typing import TypedDict
 
 import aiohttp
@@ -161,7 +162,7 @@ async def main():
         go_explore_task = asyncio.create_task(go_explore(context, queue))
         loop = asyncio.get_running_loop()
         try:
-            await loop.run_in_executor(None, lambda: interact(queue))
+            await loop.run_in_executor(None, Shell(database, queue).cmdloop)
         except KeyboardInterrupt:
             print("KeyboardInterrupt")
         except asyncio.CancelledError:
@@ -171,20 +172,6 @@ async def main():
             await go_explore_task
         except asyncio.CancelledError:
             pass
-
-
-def interact(queue: list[tuple[str, str]]) -> None:
-    try:
-        while True:
-            try:
-                s = input()
-            except EOFError:
-                return
-            if s.count("+") == 1:
-                a, b = s.split("+")
-                queue.append((a.strip(), b.strip()))
-    except Exception:
-        traceback.print_exc()
 
 
 number_name_regex = re.compile("|".join(f"\\b{n}\\b" for n in number_names), re.I)
@@ -258,6 +245,55 @@ async def go_explore(context: tuple[aiohttp.ClientSession, Database], queue: lis
         if should_skip(first) or should_skip(second):
             continue
         await explore(first, second)
+
+
+class Shell(cmd.Cmd):
+    def __init__(self, database: Database, queue: list[tuple[str, str]], prompt="] "):
+        super().__init__()
+        self.prompt = prompt
+        self.database = database
+        self.queue = queue
+        readline.set_completer_delims(" ")
+
+    def default(self, command: str):
+        if command.count("+") != 1:
+            print("Please enter two words separated by plus, i.e. FOO + BAR")
+            return
+        a, b = command.split("+")
+        a = a.strip()
+        b = b.strip()
+        if a not in self.database["emoji"]:
+            print(f"Not yet discovered: '{a}'")
+            return
+        if b not in self.database["emoji"]:
+            print(f"Not yet discovered: '{b}'")
+            return
+        self.queue.append((a, b))
+
+    def emptyline(self):
+        pass
+
+    def _complete(self, text, line, start_index, end_index):
+        pref = line[:end_index].split("+")[-1].lstrip()
+        n = len(pref) - len(text)
+        # print(f"{text=} {line=} {start_index=} {end_index=}")
+        return sorted(
+            k[n:] for k in self.database["emoji"] if k.startswith(pref)
+        )
+
+    def completenames(self, text, line, start_index, end_index):
+        return self._complete(text, line, start_index, end_index)
+
+    def completedefault(self, text, line, start_index, end_index):
+        return self._complete(text, line, start_index, end_index)
+
+    def do_exit(self, _):
+        print("Press CTRL-D to exit")
+
+    def do_EOF(self, _):
+        """Exit by the Ctrl-D shortcut."""
+        print("")
+        return True
 
 
 if __name__ == "__main__":
