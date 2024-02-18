@@ -34,19 +34,27 @@ async def get_infinite_craft_pair(
         "Referer": "https://neal.fun/infinite-craft/",
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0",
     }
-    async with session.get(url, params=params, headers=headers) as response:
-        if response.status != 200:
+    while True:
+        try:
+            async with session.get(url, params=params, headers=headers) as response:
+                if response.status != 200:
+                    print(
+                        f"HTTP {response.status} for GET {url}?first={first}&second={second}",
+                        flush=True,
+                    )
+                s = await response.read()
+                if response.status == 403 and b"_cf_chl_opt" in s:
+                    print("You got hit with a Cloudflare robot check! Go to https://neal.fun/infinite-craft/ and play for a bit", flush=True)
+                    raise SystemExit(43)
+                if response.status != 200:
+                    print(s.decode("utf-8", errors="replace"), flush=True)
+                    response.raise_for_status()
+                break
+        except asyncio.TimeoutError:
             print(
-                f"HTTP {response.status} for GET {url}?first={first}&second={second}",
+                f"TimeoutError for GET {url}?first={first}&second={second}",
                 flush=True,
             )
-        s = await response.read()
-        if response.status == 403 and b"_cf_chl_opt" in s:
-            print("You got hit with a Cloudflare robot check! Go to https://neal.fun/infinite-craft/ and play for a bit", flush=True)
-            raise SystemExit(43)
-        if response.status != 200:
-            print(s.decode("utf-8", errors="replace"), flush=True)
-            response.raise_for_status()
     try:
         return json.loads(s)
     except Exception:
