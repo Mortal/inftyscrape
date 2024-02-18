@@ -9,6 +9,11 @@ import aiohttp
 
 default_elements = {"Water": "💧", "Fire": "🔥", "Wind": "🌬️", "Earth": "🌍"}
 
+number_names = """one two three four five six seven eight nine ten
+eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen
+twenty thirty forty fifty sixty seventy eighty ninety hundred thousand
+million""".split()
+
 
 seed = 14354
 
@@ -145,6 +150,13 @@ async def main():
         await go_explore(context)
 
 
+number_name_regex = re.compile("|".join(f"\\b{n}\\b" for n in number_names), re.I)
+
+
+def should_skip(s: str) -> bool:
+    return bool(re.search(r'[0-9]', s) or len(re.findall(number_name_regex, s)) >= 3)
+
+
 async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
     xlist = list(default_elements)
     xset = set(xlist)
@@ -171,8 +183,8 @@ async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
                 xset.add(result)
                 xlist.append(result)
                 await repeated_doubling(result)
-            if re.search(r'[0-9]', first):
-                if re.search(r'[0-9]', second) or re.search(r'[0-9]', result):
+            if should_skip(first):
+                if should_skip(second) or should_skip(result):
                     # Don't do repeated addition if there's numbers involved
                     return
             first = result
@@ -194,7 +206,7 @@ async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
     while True:
         first = rng.choice(xlist)
         second = rng.choice(xlist)
-        if re.search(r'[0-9]', first) or re.search(r'[0-9]', second):
+        if should_skip(first) or should_skip(second):
             continue
         await explore(first, second)
 
