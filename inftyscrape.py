@@ -162,7 +162,7 @@ number_name_regex = re.compile("|".join(f"\\b{n}\\b" for n in number_names), re.
 
 
 def should_skip(s: str) -> bool:
-    return bool(re.search(r'[0-9]', s) or len(re.findall(number_name_regex, s)) >= 3)
+    return bool(re.search(r'[0-9]', s) or len(re.findall(number_name_regex, s)) >= 2)
 
 
 async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
