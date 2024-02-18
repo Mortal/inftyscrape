@@ -25,7 +25,10 @@ async def get_infinite_craft_pair(
     assert first <= second
     url = "https://neal.fun/api/infinite-craft/pair"
     params = {"first": first, "second": second}
-    headers = {"Referer": "https://neal.fun/infinite-craft/"}
+    headers = {
+        "Referer": "https://neal.fun/infinite-craft/",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0",
+    }
     async with session.get(url, params=params, headers=headers) as response:
         if response.status != 200:
             print(
