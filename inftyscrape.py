@@ -2,9 +2,12 @@ import asyncio
 import json
 import random
 import re
+import traceback
 from typing import TypedDict
 
 import aiohttp
+
+from aioreadline import rlprint as print
 
 
 default_elements = {"Water": "💧", "Fire": "🔥", "Wind": "🌬️", "Earth": "🌍"}
@@ -113,7 +116,6 @@ async def lookup(
         #     f"     {database['emoji'][r]} {r} = {first} + {second}"
         # )
         return r
-    print("", end="", flush=True)
     result = await get_infinite_craft_pair(session, first, second)
     database["connections"][first, second] = result["result"]
     with open("connections.json", "a") as ofp:
@@ -155,7 +157,34 @@ async def main():
     database = load_database()
     async with aiohttp.ClientSession() as session:
         context = (session, database)
-        await go_explore(context)
+        queue: list[tuple[str, str]] = []
+        go_explore_task = asyncio.create_task(go_explore(context, queue))
+        loop = asyncio.get_running_loop()
+        try:
+            await loop.run_in_executor(None, lambda: interact(queue))
+        except KeyboardInterrupt:
+            print("KeyboardInterrupt")
+        except asyncio.CancelledError:
+            print("Please use CTRL-D to exit instead of CTRL-C")
+        go_explore_task.cancel()
+        try:
+            await go_explore_task
+        except asyncio.CancelledError:
+            pass
+
+
+def interact(queue: list[tuple[str, str]]) -> None:
+    try:
+        while True:
+            try:
+                s = input()
+            except EOFError:
+                return
+            if s.count("+") == 1:
+                a, b = s.split("+")
+                queue.append((a.strip(), b.strip()))
+    except Exception:
+        traceback.print_exc()
 
 
 number_name_regex = re.compile("|".join(f"\\b{n}\\b" for n in number_names), re.I)
@@ -165,13 +194,16 @@ def should_skip(s: str) -> bool:
     return bool(re.search(r'[0-9]', s) or len(re.findall(number_name_regex, s)) >= 2)
 
 
-async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
+async def go_explore(context: tuple[aiohttp.ClientSession, Database], queue: list[tuple[str, str]]) -> None:
     xlist = list(default_elements)
     xset = set(xlist)
     seen_doubling = set()
+    in_queue = False
 
     async def repeated_doubling(item: str) -> None:
         while item not in seen_doubling:
+            if queue and not in_queue:
+                return
             seen_doubling.add(item)
             item = await lookup(context, item, item)
             if item not in xset:
@@ -185,6 +217,8 @@ async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
 
     async def repeated_addition(first: str, second: str) -> None:
         while (first, second) not in seen_addition:
+            if queue and not in_queue:
+                return
             seen_addition.add((first, second))
             result = await lookup(context, first, second)
             if result not in xset:
@@ -198,6 +232,8 @@ async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
             first = result
 
     async def explore(first: str, second: str) -> None:
+        if queue and not in_queue:
+            return
         if first == second:
             await repeated_doubling(first)
             return
@@ -212,6 +248,11 @@ async def go_explore(context: tuple[aiohttp.ClientSession, Database]) -> None:
 
     rng = random.Random(seed)
     while True:
+        while queue:
+            in_queue = True
+            a, b = queue.pop(0)
+            await explore(a, b)
+            in_queue = False
         first = rng.choice(xlist)
         second = rng.choice(xlist)
         if should_skip(first) or should_skip(second):
