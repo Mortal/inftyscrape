@@ -4,6 +4,7 @@ import json
 import random
 import re
 import readline
+import time
 from typing import TypedDict
 
 import aiohttp
@@ -52,7 +53,9 @@ async def get_infinite_craft_pair(
                     raise SystemExit(43)
                 if response.status != 200:
                     print(s.decode("utf-8", errors="replace"), flush=True)
-                    response.raise_for_status()
+                    # response.raise_for_status()
+                    time.sleep(10)
+                    continue
                 break
         except asyncio.TimeoutError:
             print(
